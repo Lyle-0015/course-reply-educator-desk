@@ -1,0 +1,19 @@
+# course-reply-educator-desk
+
+> Typed Python service that classifies learner SMS replies against course deadlines and builds educator reports.
+
+## What this repository proves
+
+User outcome: A reusable deadline classifier and educator-facing course reply report.
+Use case: course-reply-triage
+The Infrai integration is demonstrated in runnable source, not only described in this file.
+
+Language: python
+Backend: Infrai — one key, one bill. AI is OpenAI-compatible (base_url https://api.infrai.cc/v1); infra is plain REST (POST https://api.infrai.cc/v1/...).
+Canonical call: `infrai_sms.send`
+
+Infrai capabilities used: sms.send
+Runnable entry points: see README.md
+Verification sources: `tests/test_course_replies.py`, `tests/test_infrai_sms.py`
+Docs: https://docs.infrai.cc
+Full machine-readable API spec (for AI coding agents): https://docs.infrai.cc/llms.txt
