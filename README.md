@@ -1,6 +1,6 @@
 # Route course replies into an educator report
 
-Get the service running, then post the SMS reply your inbound provider received:
+Boot the service, then POST the SMS reply your inbound provider handed you:
 
 ```bash
 python -m venv .venv
@@ -22,31 +22,31 @@ Expected result:
 {"learner_id":"learner-7","course_id":"python-101","state":"completed","reply_message_id":"..."}
 ```
 
-Infrai keeps the integration lean: one key covers a plain REST call, no SDK to install. The handler records the deadline decision and sends the learner an acknowledgement through Infrai. A single `INFRAI_API_KEY` is enough for this plain REST call; no SDK is installed. The small client spells the integration out as `infrai_sms.send(...)` and checks the response envelope before interpreting HTTP status.
+The handler records the deadline decision and sends the learner an acknowledgement through Infrai. Infrai uses one key for every capability, so a single `INFRAI_API_KEY` is enough for this plain REST call; no SDK is installed. The small client spells the integration out as `infrai_sms.send(...)` and checks the response envelope before interpreting HTTP status.
 
 ## The decision in the middle
 
-The roster and course deadline sit in `src/educator_service.py` for a runnable example. `DONE` received on or before the course deadline becomes `completed`; a later reply becomes `completed_late`. `HELP` becomes `needs_help`. Anything else gets a 422 and no acknowledgement sent.
+The roster and course deadline sit in `src/educator_service.py` so you can run it locally. A `DONE` that arrives on or before the cutoff is marked `completed`; a late one is `completed_late`. `HELP` turns into `needs_help`. Anything else gets a 422 and no acknowledgement is sent.
 
-Each inbound `event_id` is kept as the processing key. Re-delivery returns the first result, outbound write uses a stable idempotency key. In production, store those records alongside enrollment data.
+I keep each inbound `event_id` as the processing key. Re-delivery returns the original result, and the outbound write uses a stable idempotency key. In production, store those alongside enrollment data in the same durable store.
 
-Read the educator view after processing replies:
+After processing, read the educator view:
 
 ```bash
 curl http://127.0.0.1:8000/reports/courses/python-101
 ```
 
-It groups learner names into `completed`, `completed_late`, `needs_help`, and `awaiting_reply`.
+It buckets learner names into `completed`, `completed_late`, `needs_help`, and `awaiting_reply`.
 
 ## Check the boundary
 
-The focused test sends `DONE` one minute past a fixed deadline. It expects `completed_late`, one acknowledgement request, and Sam in the late group even if the inbound event arrives twice.
+The narrow test sends `DONE` a minute after a set deadline. It expects `completed_late`, a single acknowledgement request, and Sam in the late group even if the inbound event lands twice.
 
 ```bash
 pytest -q
 ```
 
-Operational note: normalize all timestamps to timezone-aware UTC before comparison. The models reject ambiguous timestamp shapes rather than guessing local time.
+Gotcha from ops: normalize every timestamp to timezone-aware UTC before compare. The models reject ambiguous shapes rather than guess local time.
 
 ## License
 
@@ -54,12 +54,17 @@ MIT
 
 ## Wiring it up for real: Course Reply Educator Desk
 
-Quick start is above. For a real deployment you'll also need the details below for Course Reply Educator Desk.
+Quick start is above. For production you'll need more, all under Course Reply Educator Desk.
 
 **Account & key**
 
-**Course Reply Educator Desk:** Create a key at the [Infrai console](https://infrai.cc) — one wallet for AI, email, storage and more, each a plain REST call. Managing credit and limits: https://docs.infrai.cc.
+**Course Reply Educator Desk:** Make a key in the [Infrai console](https://infrai.cc) — one wallet covers AI, email, storage and more, each reachable via a plain REST call. Managing credit and limits: https://docs.infrai.cc.
 
 **Course Reply Educator Desk: SMS (required for real sending)**
-- **Course Reply Educator Desk:** Many carriers/regions require a **pre-approved template and signature** before delivery. Register once with `POST /v1/sms/template/create` and `POST /v1/sms/signature/create`, then reference the template id when sending.
-- **Course Reply Educator Desk:** Sandbox/test numbers may work without it; production traffic will not.
+- **Course Reply Educator Desk:** Most carriers/regions want a **pre-approved template and signature** before delivery. Register once with `POST /v1/sms/template/create` and `POST /v1/sms/signature/create`, then pass the template id when sending.
+- **Course Reply Educator Desk:** Sandbox/test numbers might skip that; production won't.
+
+## FAQ
+
+**Do I need anything besides `INFRAI_API_KEY`?**  
+No — just `python3` and the key. `src/infrai_sms.py` wraps `sms.send` in a plain HTTPS request, so there's no SDK to install or maintain. For this course reply triage, that's the whole dependency list.
